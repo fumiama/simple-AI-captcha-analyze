@@ -1,6 +1,5 @@
 #-*- coding:utf-8 -*
 
-
 import os
 from os.path import join
 from PIL import Image
@@ -13,7 +12,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import SGDClassifier
-from sklearn.externals import joblib
+import joblib
 from sklearn.metrics import classification_report
 from sklearn.metrics import confusion_matrix
 from sklearn import metrics
@@ -21,16 +20,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_predict
 from sklearn import metrics
 from sklearn import svm
-from captcha_ml.config import *
-import configparser
-
-
-
-#全局变量
-# config = configparser.ConfigParser()
-# config.read("./config.ini")
-# model_path = config.get("global", "model_path") #模型存放路径
-
+from config import *
 
 #训练模型
 def trainModel(data, label):
@@ -64,8 +54,6 @@ def trainModel(data, label):
 
     return rbf
 
-
-
 #测试模型
 def testModel(data, label):
     #读取模型
@@ -79,6 +67,3 @@ def testModel(data, label):
     print("test f1 score: ",metrics.f1_score(label, predict_list))#f1 score
     print("confusion matrix:")
     print(confusion_matrix(label, predict_list))#混淆矩阵
-
-
-

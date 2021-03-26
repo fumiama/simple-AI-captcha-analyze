@@ -1,31 +1,13 @@
 #-*- coding:utf-8 -*
 
-
 from PIL import Image
 import random
 import os
 import time
 import random
-from captcha_ml import image_training
-import configparser
-from captcha_ml.config import *
-
-
-
-#全局变量
-# config = configparser.ConfigParser()
-# config.read("./config.ini")
-# captcha_path = config.get("global", "captcha_path") #训练集验证码存放路径
-# captcha__clean_path = config.get("global", "captcha__clean_path") #训练集验证码清理存放路径
-#
-# threshold_grey =  int(config.get("global", "threshold_grey")) #过滤的灰度阈值
-# image_character_num = int(config.get("global", "image_character_num")) #识别的验证码个数
-# image_width = int(config.get("global", "image_width")) #标准化的图像宽度（像素）
-# image_height = int(config.get("global", "image_height")) #标准化的图像高度（像素）
-
-
-
-
+import image_training
+from config import *
+import numpy as np
 
 def read_captcha(path):
     """
@@ -33,18 +15,19 @@ def read_captcha(path):
     :param path: 原始验证码存放路径
     :return: image_array, image_label：存放读取的iamge list和label list
     """
-    image_array = []
     image_label = []
+    image_clean = []
     file_list = os.listdir(path)#获取captcha文件
-    for file in file_list:
-        image = Image.open(path + '/' + file)#打开图片
-        file_name = file.split(".")[0]
-        image_array.append(image)
+    for i, f in enumerate(file_list):
+        fp = open(path + '/' + f, "rb")
+        image = Image.open(fp)#打开图片
+        file_name = f.split(".")[0]
+        image_clean.append(image_transfer(i ,image))
+        fp.close()
         image_label.append(file_name)
-    return image_array, image_label
+    return image_label, image_clean
 
-
-def image_transfer(image_arry, captcha_clean_save = False):
+def image_transfer(i, image, captcha_clean_save = False):
     """
     图像粗清理
     将图像转换为灰度图像，将像素值小于某个值的点改成白色
@@ -52,25 +35,20 @@ def image_transfer(image_arry, captcha_clean_save = False):
     :param captcha_clean_save:
     :return: image_clean:清理过后的图像list
     """
-    image_clean = []
-    for i, image in enumerate(image_arry):
-        image = image.convert('L') #转换为灰度图像，即RGB通道从3变为1
-        im2 = Image.new("L", image.size, 255)
+    image = image.convert('L') #转换为灰度图像，即RGB通道从3变为1
+    im2 = Image.new("L", image.size, 255)
 
-        for y in range(image.size[1]): #遍历所有像素，将灰度超过阈值的像素转变为255（白）
-            for x in range(image.size[0]):
-                pix = image.getpixel((x, y))
-                if int(pix) > threshold_grey:  #灰度阈值
-                    im2.putpixel((x, y), 255)
-                else:
-                    im2.putpixel((x, y), pix)
+    for y in range(image.size[1]): #遍历所有像素，将灰度超过阈值的像素转变为255（白）
+        for x in range(image.size[0]):
+            pix = image.getpixel((x, y))
+            if int(pix) > threshold_grey:  #灰度阈值
+                im2.putpixel((x, y), 255)
+            else:
+                im2.putpixel((x, y), pix)
 
-        if captcha_clean_save: #保存清理过后的iamge到文件
-            im2.save(captcha_path_clean_path + '/' + image_label[i] + '.jpg')
-        image_clean.append(im2)
-    return image_clean
-
-
+    if captcha_clean_save: #保存清理过后的iamge到文件
+        im2.save(captcha_clean_path + '/' + image_label[i] + '.jpg')
+    return im2
 
 def get_bin_table(threshold=140):
     """
@@ -85,8 +63,6 @@ def get_bin_table(threshold=140):
         else:
             table.append(1)
     return table
-
-
 
 def sum_9_region(img, x, y):
     """
@@ -181,9 +157,6 @@ def sum_9_region(img, x, y):
                   + img.getpixel((x + 1, y + 1))
             return 9 - sum
 
-
-
-
 def remove_noise_pixel(img, noise_point_list):
     """
     根据噪点的位置信息，消除二值图片的黑点噪声
@@ -194,7 +167,6 @@ def remove_noise_pixel(img, noise_point_list):
     """
     for item in noise_point_list:
         img.putpixel((item[0], item[1]), 1)
-
 
 def get_clear_bin_image(image):
     """
@@ -208,21 +180,19 @@ def get_clear_bin_image(image):
     :type img:Image
     :return:
     """
-    imgry = image.convert('L')  # 转化为灰度图
 
     table = get_bin_table()
-    out = imgry.point(table, '1')  # 变成二值图片:0表示黑色,1表示白色
+    out = image.point(table, '1')  # 变成二值图片:0表示黑色,1表示白色
 
     noise_point_list = []  # 通过算法找出噪声点,第一步比较严格,可能会有些误删除的噪点
     for x in range(out.width):
         for y in range(out.height):
             res_9 = sum_9_region(out, x, y)
-            if (0 < res_9 < 3) and out.getpixel((x, y)) == 0:  # 找到孤立点
+            if (0 < res_9 < 4) and out.getpixel((x, y)) == 0:  # 找到孤立点
                 pos = (x, y)  #
                 noise_point_list.append(pos)
     remove_noise_pixel(out, noise_point_list)
     return out
-
 
 def image_split(image):
     """
@@ -230,69 +200,15 @@ def image_split(image):
     :param image:单幅图像
     :return:单幅图像被切割后的图像list
     """
-
-    #找出每个字母开始和结束的位置
-    inletter = False
-    foundletter = False
-    start = 0
-    end = 0
-    letters = []
-    for x in range(image.size[0]):
-        for y in range(image.size[1]):
-            pix = image.getpixel((x, y))
-            if pix != True:
-                inletter = True
-        if foundletter == False and inletter == True:
-            foundletter = True
-            start = x
-        if foundletter == True and inletter == False:
-            foundletter = False
-            end = x
-            letters.append((start, end))
-        inletter = False
-    # print(letters)
-
-    # 因为切割出来的图像有可能是噪声点
-    # 筛选可能切割出来的噪声点
-    subtract_array = []
-    for each in letters:
-        subtract_array.append(each[1]-each[0])
-    reSet = sorted(subtract_array, key=lambda x:x, reverse=True)[0:image_character_num]
-    letter_chioce = []
-    for each in letters:
-        if int(each[1] - each[0]) in reSet:
-            letter_chioce.append(each)
-    # print(letter_chioce)
-
     #切割图片
     image_split_array = []
-    for letter in letter_chioce:
+    w = image.width // 4
+    for i in range(image_character_num):
         # (切割的起始横坐标，起始纵坐标，切割的宽度，切割的高度)
-        im_split = image.crop((letter[0], 0, letter[1], image.size[1]))
+        im_split = image.crop((w * i, 0, w * (i + 1), image.height))
         im_split = im_split.resize((image_width, image_height))
         image_split_array.append(im_split)
-    return image_split_array[0:int(image_character_num)]
-
-
-# def image_save(image_array, image_label):
-#     """
-#     保存图像到文件
-#     :param image_array: 切割后的图像list
-#     :param image_label:
-#     :return:
-#     """
-#
-#     for num, image in enumerate(image_array):
-#         label = image_label[num]
-#         for k, image_meta in enumerate(image):
-#             file_path = captcha_path_clean_path + label[k] + '/'
-#             file_name = str(int(time.time())) + '_' + str(random.randint(0,100)) + '.gif'
-#             if not os.path.exists(file_path):
-#                 os.makedirs(file_path)
-#
-#             image_meta.save(file_path  + file_name, 'gif')#BILINEAR
-#         print("complete save: ",num)
-
+    return image_split_array
 
 def image_save(image_array, image_label):
     """
@@ -302,33 +218,17 @@ def image_save(image_array, image_label):
     :return:
     """
     for num, image_meta in enumerate(image_array):
-        file_path = captcha_path_clean_path + image_label[num] + '/'
+        file_path = train_data_path + "/" + image_label[num] + '/'
         file_name = str(int(time.time())) + '_' + str(random.randint(0,100)) + '.gif'
-        if not os.path.exists(file_path):
-            os.makedirs(file_path)
-
+        if not os.path.exists(file_path): os.makedirs(file_path)
         image_meta.save(file_path  + file_name, 'gif')
-    print("complete save: ",num)
-
-
-
-
 
 def main():
-    image_array, image_label = read_captcha(captcha_path) #读取验证码文件
-    image_clean = image_transfer(image_array, image_label, captcha_path_clean_path) #验证码图像粗清理
+    image_label, image_clean = read_captcha(train_data_tmp_path) #读取验证码文件
 
-    # image_array = []
     for k, each_image in enumerate(image_clean):
         image_out = get_clear_bin_image(each_image) #验证码图像细清理
         split_result = image_split(image_out) #图像切割
-        # image_array.append(split_result)
         image_save(split_result, image_label[k]) #保存训练图像
 
-
-
-
-if __name__ == '__main__':
-    main()
-
-
+if __name__ == '__main__': main()
