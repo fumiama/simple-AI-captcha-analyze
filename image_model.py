@@ -19,20 +19,20 @@ from sklearn import metrics
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_predict
 from sklearn import metrics
-from sklearn import svm
+#from sklearn import svm
 from config import *
 
 #训练模型
 def trainModel(data, label):
     print("trainning process >>>>>>>>>>>>>>>>>>>>>>")
-    rbf = svm.SVC(decision_function_shape='ovo',kernel='rbf')
-    scores = cross_val_score(rbf, data, label,cv=10)
-    print("rbf: ",scores.mean())
+    #rbf = svm.SVC(decision_function_shape='ovo',kernel='rbf')
+    #scores = cross_val_score(rbf, data, label,cv=10)
+    #print("rbf: ",scores.mean())
 
-    linear = svm.SVC(decision_function_shape='ovo',kernel='linear')
-    scores = cross_val_score(linear, data, label,cv=10)
-    print("linear: ",scores.mean())
-    linear.fit(data, label)
+    #linear = svm.SVC(decision_function_shape='ovo',kernel='linear')
+    #scores = cross_val_score(linear, data, label,cv=10)
+    #print("linear: ",scores.mean())
+    #linear.fit(data, label)
 
     rf = RandomForestClassifier(n_estimators=100, max_depth=None,min_samples_split=2, random_state=0)
     scores = cross_val_score(rf, data, label,cv=10)

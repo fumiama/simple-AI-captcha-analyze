@@ -24,7 +24,7 @@ def link_files():
         os.system("bash link.sh")
 
 if __name__ == '__main__':
-    Captcha(10060, captcha_path, "白舟忍者", 48).gen_captcha()
+    Captcha(660, captcha_path, "白舟忍者", 48).gen_captcha()
     link_files()
     image_process.main()
     os.system("rm -rf "+train_data_tmp_path)
